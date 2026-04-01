@@ -1,37 +1,46 @@
-import HeaderButton from "./components/HeaderButton";
+"use client"
+
 import { HeaderSeparator } from "./components/HeaderSeparator";
 import Image from "next/image";
+import ToggleTheme from "./components/ToggleTheme";
+import { useState } from "react";
+import AboutPage from "./pages/About";
 
 export default function Home() {
-  return (
-    <div className="flex w-full h-20 shadow-md shadow-zinc-300 dark:shadow-zinc-900 items-center">
-      <div className="flex-1 flex items-center gap-2">
-        <Image 
-          src="/AstroScope-Image-Light.png" 
-          alt="AstroScope logo" 
-          width={140} 
-          height={40}
-          className="h-auto ml-4"
-        />
-        <Image 
-          src="/AstroScope-Text-Light-Crop.png" 
-          alt="AstroScope logo" 
-          width={250} 
-          height={40}
-          className="h-auto ml-[-16px]"
-        />
-      </div>
-      <div className="flex h-full w-[35%] mx-auto justify-between">
-        <HeaderButton text="Curva de Luz" index={0}/>
-        <HeaderSeparator />
-        <HeaderButton text="Órbita 3D" index={1}/>
-        <HeaderSeparator />
-        <HeaderButton text="Gerar PDF" index={2}/>
-        <HeaderSeparator />
-        <HeaderButton text="Sobre o projeto" index={2}/>
-      </div>
+  const [darkTheme, setDarkTheme] = useState(true);
+  const [activePage, setActivePage] = useState<number>(0);
 
-      <div className="flex-1" />
-    </div>
+  return (
+    <>
+      <div className="flex w-full h-20 shadow-md shadow-zinc-300 dark:shadow-zinc-900 justify-between">
+        <div className="flex-1 flex items-center gap-4">
+          <Image 
+            src={darkTheme ? "/AstroScope-Text-Dark.png" : "/download.png"}
+            alt="AstroScope logo" 
+            width={250} 
+            height={40}
+            className="h-auto ml-4"
+          />
+          <ToggleTheme darkTheme={darkTheme} setDarkTheme={setDarkTheme} />
+        </div>
+        <div className="flex h-full mx-auto justify-between">
+          <button onClick={() => {setActivePage(0)}} type="button" className="px-8 rounded-xl hover:bg-zinc-300 dark:hover:bg-[#d4d4d825] hover:cursor-pointer h-[70%] my-auto mx-2">Curva de Luz</button>
+          <HeaderSeparator />
+          <button onClick={() => {setActivePage(1)}} type="button" className="px-8 rounded-xl hover:bg-zinc-300 dark:hover:bg-[#d4d4d825] hover:cursor-pointer h-[70%] my-auto mx-2">Órbita 3D</button>
+          <HeaderSeparator />
+          <button onClick={() => {setActivePage(2)}} type="button" className="px-8 rounded-xl hover:bg-zinc-300 dark:hover:bg-[#d4d4d825] hover:cursor-pointer h-[70%] my-auto mx-2">Gerar PDF</button>
+          <HeaderSeparator />
+          <button onClick={() => {setActivePage(3)}} type="button" className="px-8 rounded-xl hover:bg-zinc-300 dark:hover:bg-[#d4d4d825] hover:cursor-pointer h-[70%] my-auto mx-2">Sobre o projeto</button>
+        </div>
+
+        <div className="flex-1" />
+      </div>
+      
+      {activePage === 0 && <div>Página Curva de Luz</div>}
+      {activePage === 1 && <div>Página Órbita 3D</div>}
+      {activePage === 2 && <div>Página Gerar PDF</div>}
+      {activePage === 3 && <AboutPage />}
+
+    </>
   );
 }
