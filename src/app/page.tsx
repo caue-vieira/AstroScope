@@ -5,13 +5,14 @@ import Image from "next/image";
 import ToggleTheme from "./components/ToggleTheme";
 import { useState } from "react";
 import AboutPage from "./pages/About";
+import Orbit from "./pages/Orbit";
 
 export default function Home() {
   const [darkTheme, setDarkTheme] = useState(true);
   const [activePage, setActivePage] = useState<number>(0);
 
   return (
-    <>
+    <section className="h-screen flex flex-col">
       <div className="flex w-full h-20 shadow-md shadow-zinc-300 dark:shadow-zinc-900 justify-between">
         <div className="flex-1 flex items-center gap-4">
           <Image 
@@ -37,10 +38,10 @@ export default function Home() {
       </div>
       
       {activePage === 0 && <div>Página Curva de Luz</div>}
-      {activePage === 1 && <div>Página Órbita 3D</div>}
+      {activePage === 1 && <Orbit />}
       {activePage === 2 && <div>Página Gerar PDF</div>}
       {activePage === 3 && <AboutPage />}
 
-    </>
+    </section>
   );
 }
