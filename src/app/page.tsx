@@ -6,6 +6,8 @@ import ToggleTheme from "./components/ToggleTheme";
 import { useState } from "react";
 import AboutPage from "./pages/About";
 import Orbit from "./pages/Orbit";
+import FileInput from "./components/FileInput";
+import LightCurve from "./pages/LightCurve";
 
 export default function Home() {
   const [darkTheme, setDarkTheme] = useState(true);
@@ -37,7 +39,7 @@ export default function Home() {
         <div className="flex-1" />
       </div>
       
-      {activePage === 0 && <div>Página Curva de Luz</div>}
+      {activePage === 0 && <LightCurve />}
       {activePage === 1 && <Orbit />}
       {activePage === 2 && <div>Página Gerar PDF</div>}
       {activePage === 3 && <AboutPage />}
