@@ -22,22 +22,22 @@ interface ChartProps {
 }
 
 function Chart({ sessions }: ChartProps) {
-    const chartData = sessions?.flatMap(session => {
+    const chartData = sessions?.flatMap(session =>
         session.data.map(p => ({
-            x: p.jd,
+            x: session.sessionDate,
             y: p.magnitude,
             error: p.error
-        }));
-    });
+        }))
+    ) ?? [];
 
      return (
         <ScatterChart width={700} height={400}>
             <CartesianGrid />
         
             <XAxis
-                type="number"
+                type="category"
                 dataKey="x"
-                name="Julian Date"
+                name="Date"
             />
         
             <YAxis

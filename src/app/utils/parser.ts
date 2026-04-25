@@ -81,21 +81,21 @@ function jdToDate(jd: number) {
     return new Date(unixTime);
 }
 
-export function groupByMonth(sessions: Session[]) {
+export function groupByFilter(groupBy: string, sessions: Session[]) {
     const groups: Record<string, DataPoint[]> = {};
 
     sessions.forEach(session => {
         session.data.forEach(point => {
-        const year = point.date.getFullYear();
-        const month = point.date.getMonth() + 1;
+            const year = point.date.getFullYear();
+            const month = point.date.getMonth() + 1;
 
-        const key = `${year}-${String(month).padStart(2, "0")}`;
+            const key = `${year}-${String(month).padStart(2, "0")}`;
 
-        if (!groups[key]) {
-            groups[key] = [];
-        }
+            if (!groups[key]) {
+                groups[key] = [];
+            }
 
-        groups[key].push(point);
+            groups[key].push(point);
         });
     });
 
