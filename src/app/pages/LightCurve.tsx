@@ -1,54 +1,140 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import { useMemo } from "react";
+import { useLightCurve } from "../components/LightCurveStore";
+import {
+    filterSessionsByDateRange,
+    sessionsToChartPoints,
+    getDateBounds,
+} from "../utils/parser";
 import FileInput from "../components/FileInput";
 import Chart from "../components/Chart";
-import { groupByFilter, Session } from "../utils/parser";
+import DateRangePicker from "../components/DateRangePicker";
+import type { Session } from "../utils/parser";
 
-function LightCurve() {
-    const [data, setData] = useState<any>(null);
-    const [groupedData, setGroupedData] = useState<any>(null);
+export default function LightCurve() {
+    const { sessions, setSessions, dateRange, setDateRange } = useLightCurve();
 
-    useEffect(() => {
-        if(data !== null) {
-            const filtered = getFirstSessionPerMonth(data);
-            setGroupedData(filtered);
-        }
-    }, [data]);
+    // ── date bounds from full dataset ──────────────────────────────────────
+    const bounds = useMemo(
+        () => (sessions ? getDateBounds(sessions) : null),
+        [sessions]
+    );
 
-    function formatDate(date: Date) {
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const year = date.getFullYear();
-      
-        return `${day}/${month}/${year}`;
-    }
+    // ── filtered sessions ──────────────────────────────────────────────────
+    const filteredSessions = useMemo(() => {
+        if (!sessions) return [];
+        if (!dateRange || !bounds) return sessions;
+        return filterSessionsByDateRange(sessions, dateRange.from, dateRange.to);
+    }, [sessions, dateRange, bounds]);
 
-    function getFirstSessionPerMonth(sessions: Session[]) {
-        const grouped = groupByFilter("month", sessions);
+    // ── chart data (one point per session) ────────────────────────────────
+    const chartData = useMemo(
+        () => sessionsToChartPoints(filteredSessions),
+        [filteredSessions]
+    );
 
-        const result: Session[] = [];
+    // ── stats ──────────────────────────────────────────────────────────────
+    const stats = useMemo(() => {
+        if (chartData.length === 0) return null;
+        const mags = chartData.map((p) => p.magnitude);
+        return {
+            sessions: filteredSessions.length,
+            total: filteredSessions.reduce((a, s) => a + s.data.length, 0),
+            min: Math.min(...mags).toFixed(3),
+            max: Math.max(...mags).toFixed(3),
+            mean: (mags.reduce((a, b) => a + b, 0) / mags.length).toFixed(3),
+        };
+    }, [chartData, filteredSessions]);
 
-        Object.entries(grouped).forEach(([month, points]) => {
-            if(points.length === 0) return;
-
-            const first = points[0];
-
-            result.push({
-                sessionDate: formatDate(first.date),
-                data: [points[0]]
-            });
-        });
-
-        return result;
+    function handleDataLoaded(loaded: Session[]) {
+        setSessions(loaded);
+        setDateRange(null); // reset filter when new file is loaded
     }
 
     return (
-        <>
-            <FileInput onDataLoaded={setData} />
-            {groupedData && (
-                <Chart sessions={groupedData} />
+        <div className="flex flex-col gap-6 p-6 flex-1 min-h-0">
+            {/* ── Header row ─────────────────────────────────────────────── */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-lg font-semibold text-foreground">
+                        Curva de Luz
+                    </h2>
+                    {sessions && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {sessions.length} sessões carregadas
+                        </p>
+                    )}
+                </div>
+                <FileInput
+                    onDataLoaded={handleDataLoaded}
+                    hasData={sessions !== null}
+                />
+            </div>
+
+            {/* ── Empty state ────────────────────────────────────────────── */}
+            {!sessions && (
+                <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center text-muted-foreground">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-30"
+                        aria-hidden="true"
+                    >
+                        <path d="M3 3v18h18" />
+                        <path d="m19 9-5 5-4-4-3 3" />
+                    </svg>
+                    <p className="text-sm">
+                        Carregue um arquivo ALCDEF (.txt) para visualizar a curva de luz.
+                    </p>
+                </div>
             )}
-        </>
-    )
+
+            {/* ── Data loaded ────────────────────────────────────────────── */}
+            {sessions && bounds && (
+                <>
+                    {/* Date filter */}
+                    <DateRangePicker
+                        bounds={bounds}
+                        value={dateRange}
+                        onChange={setDateRange}
+                    />
+
+                    {/* Stats bar */}
+                    {stats && (
+                        <div className="flex flex-wrap gap-4">
+                            <StatCard label="Sessões" value={String(stats.sessions)} />
+                            <StatCard label="Medições" value={String(stats.total)} />
+                            <StatCard label="Mag. mín." value={stats.min} />
+                            <StatCard label="Mag. máx." value={stats.max} />
+                            <StatCard label="Mag. média" value={stats.mean} />
+                        </div>
+                    )}
+
+                    {/* Chart */}
+                    <div className="bg-card border border-border rounded-xl p-4 flex justify-center w-[60%] mx-auto h-[500px] items-center">
+                        <Chart data={chartData} />
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 
-export default LightCurve;
+// ─── Small stat card ──────────────────────────────────────────────────────────
+
+function StatCard({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="bg-card border border-border rounded-lg px-4 py-2 min-w-[90px]">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-sm font-semibold text-foreground font-mono">{value}</p>
+        </div>
+    );
+}
