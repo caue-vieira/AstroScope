@@ -1,12 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
+import { useOrbit } from "@/app/components/OrbitStore";
+import { currentJulianDay, orbitEllipsePoints, propagateOrbit } from "@/app/utils/KeplerPropagator";
 import { parseSbdbResponse } from "@/app/utils/SbdbService";
-import { propagateOrbit, orbitEllipsePoints, currentJulianDay } from "@/app/utils/KeplerPropagator";
-import type { AsteroidInfo, OrbitalElements, SbdbResponse } from "@/app/utils/SbdbService";
+import type { OrbitalElements, SbdbResponse } from "@/app/utils/SbdbService";
 
 // ─── Scale factor: 1 AU → scene units ────────────────────────────────────────
 const AU_SCALE = 5;
@@ -25,11 +26,16 @@ function Orbit() {
         animationId: number;
     } | null>(null);
 
-    const [query, setQuery] = useState("");
+    const { query, setQuery, asteroidInfo, setAsteroidInfo, orbitalElements, setOrbitalElements } = useOrbit();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [asteroidInfo, setAsteroidInfo] = useState<AsteroidInfo | null>(null);
     const [hasOrbit, setHasOrbit] = useState(false);
+    const [sceneReady, setSceneReady] = useState(false);
+
+    // Mirror orbitalElements into a ref so the restore effect can read it without
+    // needing it as a dependency (avoids re-running on every new search).
+    const orbitalElementsRef = useRef<OrbitalElements | null>(orbitalElements);
+    useEffect(() => { orbitalElementsRef.current = orbitalElements; }, [orbitalElements]);
 
     // ── Three.js scene initialisation (runs once) ──────────────────────────
     useEffect(() => {
@@ -122,6 +128,7 @@ function Orbit() {
         window.addEventListener("resize", handleResize);
 
         sceneRef.current = { scene, camera, renderer, controls, asteroidMesh: null, orbitLine: null, animationId };
+        setSceneReady(true);
 
         return () => {
             cancelAnimationFrame(animationId);
@@ -190,6 +197,12 @@ function Orbit() {
         setHasOrbit(true);
     }, []);
 
+    // ── Restore orbit when re-mounting after a tab switch ─────────────────
+    useEffect(() => {
+        if (!sceneReady || !orbitalElementsRef.current) return;
+        drawOrbit(orbitalElementsRef.current);
+    }, [sceneReady, drawOrbit]);
+
     // ── Search handler ─────────────────────────────────────────────────────
     const handleSearch = useCallback(async () => {
         const trimmed = query.trim();
@@ -207,6 +220,7 @@ function Orbit() {
 
             const { elements, info } = parseSbdbResponse(response.data);
             setAsteroidInfo(info);
+            setOrbitalElements(elements);
             drawOrbit(elements);
         } catch (err) {
             if (axios.isAxiosError(err) && err.response?.status === 200) {
@@ -217,7 +231,7 @@ function Orbit() {
         } finally {
             setLoading(false);
         }
-    }, [query, drawOrbit]);
+    }, [query, drawOrbit, setAsteroidInfo, setOrbitalElements]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") handleSearch();

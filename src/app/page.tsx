@@ -1,13 +1,15 @@
 "use client";
 
-import { HeaderSeparator } from "./components/HeaderSeparator";
 import Image from "next/image";
-import ToggleTheme from "./components/ToggleTheme";
 import { useState } from "react";
-import AboutPage from "./pages/About";
-import Orbit from "./pages/Orbit";
-import LightCurve from "./pages/LightCurve";
+import { HeaderSeparator } from "./components/HeaderSeparator";
 import { LightCurveProvider } from "./components/LightCurveStore";
+import { OrbitProvider } from "./components/OrbitStore";
+import ToggleTheme from "./components/ToggleTheme";
+import AboutPage from "./pages/About";
+import GeneratePDF from "./pages/GeneratePDF";
+import LightCurve from "./pages/LightCurve";
+import Orbit from "./pages/Orbit";
 
 export default function Home() {
     const [darkTheme, setDarkTheme] = useState(true);
@@ -16,57 +18,59 @@ export default function Home() {
     return (
         // Provider wraps the whole app so state survives page switches
         <LightCurveProvider>
-            <section className="h-screen flex flex-col">
-                {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex w-full h-20 shadow-md shadow-zinc-300 dark:shadow-zinc-900 justify-between shrink-0">
-                    <div className="flex-1 flex items-center gap-4">
-                        <Image
-                            src={darkTheme ? "/AstroScope-Text-Dark.png" : "/download.png"}
-                            alt="AstroScope logo"
-                            width={250}
-                            height={40}
-                            className="h-auto ml-4"
-                        />
-                        <ToggleTheme darkTheme={darkTheme} setDarkTheme={setDarkTheme} />
+            <OrbitProvider>
+                <section className="h-screen flex flex-col">
+                    {/* ── Header ───────────────────────────────────────────── */}
+                    <div className="flex w-full h-20 shadow-md shadow-zinc-300 dark:shadow-zinc-900 justify-between shrink-0">
+                        <div className="flex-1 flex items-center gap-4">
+                            <Image
+                                src={darkTheme ? "/AstroScope-Text-Dark.png" : "/download.png"}
+                                alt="AstroScope logo"
+                                width={250}
+                                height={40}
+                                className="h-auto ml-4"
+                            />
+                            <ToggleTheme darkTheme={darkTheme} setDarkTheme={setDarkTheme} />
+                        </div>
+
+                        <nav className="flex h-full mx-auto justify-between">
+                            <NavButton
+                                label="Curva de Luz"
+                                active={activePage === 0}
+                                onClick={() => setActivePage(0)}
+                            />
+                            <HeaderSeparator />
+                            <NavButton
+                                label="Órbita 3D"
+                                active={activePage === 1}
+                                onClick={() => setActivePage(1)}
+                            />
+                            <HeaderSeparator />
+                            <NavButton
+                                label="Gerar PDF"
+                                active={activePage === 2}
+                                onClick={() => setActivePage(2)}
+                            />
+                            <HeaderSeparator />
+                            <NavButton
+                                label="Sobre o projeto"
+                                active={activePage === 3}
+                                onClick={() => setActivePage(3)}
+                            />
+                        </nav>
+
+                        <div className="flex-1" />
                     </div>
 
-                    <nav className="flex h-full mx-auto justify-between">
-                        <NavButton
-                            label="Curva de Luz"
-                            active={activePage === 0}
-                            onClick={() => setActivePage(0)}
-                        />
-                        <HeaderSeparator />
-                        <NavButton
-                            label="Órbita 3D"
-                            active={activePage === 1}
-                            onClick={() => setActivePage(1)}
-                        />
-                        <HeaderSeparator />
-                        <NavButton
-                            label="Gerar PDF"
-                            active={activePage === 2}
-                            onClick={() => setActivePage(2)}
-                        />
-                        <HeaderSeparator />
-                        <NavButton
-                            label="Sobre o projeto"
-                            active={activePage === 3}
-                            onClick={() => setActivePage(3)}
-                        />
-                    </nav>
-
-                    <div className="flex-1" />
-                </div>
-
-                {/* ── Pages ────────────────────────────────────────────── */}
-                <main className="flex-1 min-h-0 overflow-y-auto">
-                    {activePage === 0 && <LightCurve />}
-                    {activePage === 1 && <Orbit />}
-                    {activePage === 2 && <div className="p-6">Página Gerar PDF</div>}
-                    {activePage === 3 && <AboutPage />}
-                </main>
-            </section>
+                    {/* ── Pages ────────────────────────────────────────────── */}
+                    <main className="flex-1 min-h-0 overflow-y-auto">
+                        {activePage === 0 && <LightCurve />}
+                        {activePage === 1 && <Orbit />}
+                        {activePage === 2 && <GeneratePDF />}
+                        {activePage === 3 && <AboutPage />}
+                    </main>
+                </section>
+            </OrbitProvider>
         </LightCurveProvider>
     );
 }
