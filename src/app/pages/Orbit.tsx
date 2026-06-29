@@ -26,7 +26,7 @@ function Orbit() {
         animationId: number;
     } | null>(null);
 
-    const { query, setQuery, asteroidInfo, setAsteroidInfo, orbitalElements, setOrbitalElements } = useOrbit();
+    const { query, setQuery, asteroidInfo, setAsteroidInfo, orbitalElements, setOrbitalElements, setOrbitSnapshot } = useOrbit();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasOrbit, setHasOrbit] = useState(false);
@@ -62,7 +62,7 @@ function Orbit() {
         scene.add(camera);
 
         // Renderer
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(WIDTH, HEIGHT);
         renderer.setClearColor(0x000000, 0);
@@ -197,11 +197,20 @@ function Orbit() {
         setHasOrbit(true);
     }, []);
 
+    // ── Capture WebGL canvas as JPEG base64 and store in context ──────────
+    const captureSnapshot = useCallback(() => {
+        const ref = sceneRef.current;
+        if (!ref) return;
+        ref.renderer.render(ref.scene, ref.camera);
+        setOrbitSnapshot(ref.renderer.domElement.toDataURL("image/jpeg", 0.88));
+    }, [setOrbitSnapshot]);
+
     // ── Restore orbit when re-mounting after a tab switch ─────────────────
     useEffect(() => {
         if (!sceneReady || !orbitalElementsRef.current) return;
         drawOrbit(orbitalElementsRef.current);
-    }, [sceneReady, drawOrbit]);
+        captureSnapshot();
+    }, [sceneReady, drawOrbit, captureSnapshot]);
 
     // ── Search handler ─────────────────────────────────────────────────────
     const handleSearch = useCallback(async () => {
@@ -222,6 +231,7 @@ function Orbit() {
             setAsteroidInfo(info);
             setOrbitalElements(elements);
             drawOrbit(elements);
+            captureSnapshot();
         } catch (err) {
             if (axios.isAxiosError(err) && err.response?.status === 200) {
                 setError("Asteroide não encontrado. Tente outro nome ou designação.");
@@ -231,7 +241,7 @@ function Orbit() {
         } finally {
             setLoading(false);
         }
-    }, [query, drawOrbit, setAsteroidInfo, setOrbitalElements]);
+    }, [query, drawOrbit, setAsteroidInfo, setOrbitalElements, captureSnapshot]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") handleSearch();

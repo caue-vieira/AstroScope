@@ -26,12 +26,14 @@ type Stats = {
 
 export default function GeneratePDF() {
     const { sessions, dateRange } = useLightCurve();
-    const { asteroidInfo } = useOrbit();
+    const { asteroidInfo, orbitSnapshot } = useOrbit();
     const [generating, setGenerating] = useState(false);
 
     const hasLightCurve = sessions !== null && sessions.length > 0;
     const hasOrbit = asteroidInfo !== null;
     const hasAnyData = hasLightCurve || hasOrbit;
+
+    const objectName = sessions?.[0]?.objectName ?? null;
 
     // ── Derived data ───────────────────────────────────────────────────────
     const bounds = useMemo(
@@ -65,7 +67,7 @@ export default function GeneratePDF() {
         try {
             const { default: jsPDF } = await import("jspdf");
             const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-            buildPDF(doc, { hasLightCurve, hasOrbit, stats, chartData, asteroidInfo, dateRange });
+            await buildPDF(doc, { hasLightCurve, hasOrbit, stats, chartData, asteroidInfo, dateRange, objectName, orbitSnapshot });
             doc.save(`AstroScope_${new Date().toISOString().slice(0, 10)}.pdf`);
         } finally {
             setGenerating(false);
@@ -137,7 +139,7 @@ export default function GeneratePDF() {
                     {/* Light Curve preview */}
                     {hasLightCurve && stats && (
                         <PreviewCard
-                            title="Curva de Luz"
+                            title={objectName ? `Curva de Luz — ${objectName}` : "Curva de Luz"}
                             badge={`${stats.sessions} sessões · ${stats.total} medições`}
                             color="blue"
                         >
@@ -170,6 +172,14 @@ export default function GeneratePDF() {
                             badge={[asteroidInfo.orbitClass, asteroidInfo.isNeo && "NEO", asteroidInfo.isPha && "PHA"].filter(Boolean).join(" · ")}
                             color="amber"
                         >
+                            {orbitSnapshot && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={orbitSnapshot}
+                                    alt="Prévia da órbita 3D"
+                                    className="w-full rounded-lg mb-3 border border-border object-cover max-h-40"
+                                />
+                            )}
                             <div className="flex flex-wrap gap-2">
                                 <MiniStat label="Semieixo maior" value={`${asteroidInfo.semiMajorAxis} AU`} />
                                 <MiniStat label="Excentricidade" value={asteroidInfo.eccentricity} />
@@ -179,7 +189,9 @@ export default function GeneratePDF() {
                                 <MiniStat label="Observações" value={String(asteroidInfo.nObsUsed)} />
                             </div>
                             <p className="text-xs text-muted-foreground mt-2">
-                                O PDF incluirá os elementos orbitais, dados de aproximação e qualidade do ajuste.
+                                {orbitSnapshot
+                                    ? "O PDF incluirá a imagem da simulação acima, os elementos orbitais e dados de aproximação."
+                                    : "Acesse a aba Órbita 3D para gerar a imagem da simulação antes de exportar."}
                             </p>
                         </PreviewCard>
                     )}
@@ -263,9 +275,20 @@ type BuildParams = {
     chartData: ChartPoint[];
     asteroidInfo: AsteroidInfo | null;
     dateRange: DateRange | null;
+    objectName: string | null;
+    orbitSnapshot: string | null;
 };
 
-function buildPDF(doc: InstanceType<typeof import("jspdf").default>, p: BuildParams) {
+function loadImageDimensions(src: string): Promise<{ w: number; h: number }> {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ w: 16, h: 9 }); // safe fallback aspect ratio
+        img.src = src;
+    });
+}
+
+async function buildPDF(doc: InstanceType<typeof import("jspdf").default>, p: BuildParams) {
     const PW = 210;
     const PH = 297;
     const M = 15;
@@ -311,7 +334,8 @@ function buildPDF(doc: InstanceType<typeof import("jspdf").default>, p: BuildPar
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 60, 180);
-        doc.text("CURVA DE LUZ", M, y);
+        const lcTitle = p.objectName ? `CURVA DE LUZ — ${p.objectName}` : "CURVA DE LUZ";
+        doc.text(lcTitle, M, y);
         y += 3;
         hLine(y, 60, 100, 220);
         y += 7;
@@ -399,6 +423,15 @@ function buildPDF(doc: InstanceType<typeof import("jspdf").default>, p: BuildPar
             bx += bw + 3;
         }
         y += 8;
+
+        // Orbit snapshot image
+        if (p.orbitSnapshot) {
+            const dims = await loadImageDimensions(p.orbitSnapshot);
+            const imgH = Math.min((dims.h / dims.w) * CW, 72);
+            newPageIfNeeded(imgH + 6);
+            doc.addImage(p.orbitSnapshot, "JPEG", M, y, CW, imgH);
+            y += imgH + 5;
+        }
 
         // Two-column info tables
         const col1: [string, string][] = [

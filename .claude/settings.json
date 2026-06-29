@@ -5,7 +5,8 @@
       "Bash(node -e ' *)",
       "Read(//c/Users/Win10/AppData/Local/Temp/claude/**)",
       "Bash(npm uninstall *)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq \"\" } | Stop-Process -Force; npm uninstall playwright 2>&1 | Select-String -NotMatch \"^npm\")"
     ]
   }
 }

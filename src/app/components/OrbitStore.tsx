@@ -13,9 +13,12 @@ type OrbitState = {
     query: string;
     asteroidInfo: AsteroidInfo | null;
     orbitalElements: OrbitalElements | null;
+    /** Base64 JPEG snapshot of the Three.js canvas — not persisted to localStorage */
+    orbitSnapshot: string | null;
     setQuery: (q: string) => void;
     setAsteroidInfo: (info: AsteroidInfo | null) => void;
     setOrbitalElements: (e: OrbitalElements | null) => void;
+    setOrbitSnapshot: (s: string | null) => void;
 };
 
 const OrbitContext = createContext<OrbitState | null>(null);
@@ -43,6 +46,7 @@ export function OrbitProvider({ children }: { children: ReactNode }) {
     const [query, setQuery] = useState("");
     const [asteroidInfo, setAsteroidInfo] = useState<AsteroidInfo | null>(null);
     const [orbitalElements, setOrbitalElements] = useState<OrbitalElements | null>(null);
+    const [orbitSnapshot, setOrbitSnapshot] = useState<string | null>(null);
 
     // Restore from localStorage on mount (client-only)
     useEffect(() => {
@@ -59,7 +63,7 @@ export function OrbitProvider({ children }: { children: ReactNode }) {
     useEffect(() => { save("astroscope.orbit.orbitalElements", orbitalElements); }, [orbitalElements]);
 
     return (
-        <OrbitContext.Provider value={{ query, asteroidInfo, orbitalElements, setQuery, setAsteroidInfo, setOrbitalElements }}>
+        <OrbitContext.Provider value={{ query, asteroidInfo, orbitalElements, orbitSnapshot, setQuery, setAsteroidInfo, setOrbitalElements, setOrbitSnapshot }}>
             {children}
         </OrbitContext.Provider>
     );

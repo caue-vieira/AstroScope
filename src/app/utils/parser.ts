@@ -13,6 +13,8 @@ export type Session = {
     /** Parsed Date object for sorting / filtering */
     sessionDateObj: Date;
     data: DataPoint[];
+    /** Value of the OBJECTNAME metadata field, e.g. "Vesta" */
+    objectName: string | null;
 };
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -28,12 +30,18 @@ export function readALCDEFFile(text: string): Session[] {
         const line = rawLine.trim();
 
         if (line === "STARTMETADATA") {
-            currentSession = { data: [] };
+            currentSession = { data: [], objectName: null };
             inDataBlock = false;
             continue;
         }
 
         if (!currentSession) continue;
+
+        if (line.startsWith("OBJECTNAME=")) {
+            const val = line.split("=")[1].trim();
+            if (val) currentSession.objectName = val;
+            continue;
+        }
 
         if (line.startsWith("SESSIONDATE=")) {
             const raw = line.split("=")[1].trim();
@@ -48,7 +56,12 @@ export function readALCDEFFile(text: string): Session[] {
                 currentSession.sessionDateObj &&
                 currentSession.data
             ) {
-                sessions.push(currentSession as Session);
+                sessions.push({
+                    sessionDate: currentSession.sessionDate,
+                    sessionDateObj: currentSession.sessionDateObj,
+                    data: currentSession.data,
+                    objectName: currentSession.objectName ?? null,
+                });
             }
             currentSession = null;
             inDataBlock = false;
