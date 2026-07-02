@@ -18,6 +18,10 @@ type TooltipData = {
     y: number; // px, relative to the canvas container
     title: string;
     rows: { label: string; value: string }[];
+    /** Optional badges (NEO / PHA / orbit class) mirrored from the side panel */
+    isNeo?: boolean;
+    isPha?: boolean;
+    orbitClass?: string;
 };
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -115,15 +119,19 @@ function Orbit() {
             if (ref.asteroidMesh && info) {
                 const hit = raycaster.intersectObject(ref.asteroidMesh, false);
                 if (hit.length > 0) {
-                    const rows: { label: string; value: string }[] = [
-                        { label: "Designação", value: info.designation },
-                        { label: "Classe", value: info.orbitClass },
-                        { label: "Período", value: `${info.period} dias` },
-                        { label: "MOID (Terra)", value: `${info.moid} AU` },
-                    ];
-                    if (info.isNeo) rows.push({ label: "NEO", value: "Sim" });
-                    if (info.isPha) rows.push({ label: "PHA", value: "Sim" });
-                    setTooltip({ x: px, y: py, title: info.shortname, rows });
+                    setTooltip({
+                        x: px,
+                        y: py,
+                        title: info.shortname,
+                        rows: [
+                            { label: "Designação", value: info.designation },
+                            { label: "Período", value: `${info.period} dias` },
+                            { label: "MOID (Terra)", value: `${info.moid} AU` },
+                        ],
+                        isNeo: info.isNeo,
+                        isPha: info.isPha,
+                        orbitClass: info.orbitClass,
+                    });
                     return;
                 }
             }
@@ -143,6 +151,9 @@ function Orbit() {
                             { label: "Afélio", value: `${elements.ad.toFixed(4)} AU` },
                             { label: "Período", value: `${elements.period.toFixed(2)} dias` },
                         ],
+                        isNeo: info?.isNeo,
+                        isPha: info?.isPha,
+                        orbitClass: info?.orbitClass,
                     });
                     return;
                 }
@@ -263,11 +274,14 @@ function Orbit() {
 
         // Invisible tube around the same curve — reliable raycast target for the
         // orbit hover tooltip (thin lines raycast poorly at varying zoom levels).
+        // The radius scales with orbit size: larger orbits push the camera farther
+        // back, so a fixed thin radius would become an impossibly small target.
         const curve = new THREE.CatmullRomCurve3(
             ellipsePoints.map((p) => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)),
             true
         );
-        const tubeGeom = new THREE.TubeGeometry(curve, 360, 0.18, 8, true);
+        const tubeRadius = Math.max(0.25, elements.ad * AU_SCALE * 0.03);
+        const tubeGeom = new THREE.TubeGeometry(curve, 360, tubeRadius, 8, true);
         const tubeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
         const orbitTube = new THREE.Mesh(tubeGeom, tubeMat);
         scene.add(orbitTube);
@@ -408,6 +422,13 @@ function Orbit() {
                             }}
                         >
                             <p className="font-semibold text-foreground mb-1">{tooltip.title}</p>
+                            {(tooltip.isNeo || tooltip.isPha || tooltip.orbitClass) && (
+                                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                                    {tooltip.isNeo && <Badge label="NEO" color="amber" />}
+                                    {tooltip.isPha && <Badge label="PHA" color="red" />}
+                                    {tooltip.orbitClass && <Badge label={tooltip.orbitClass} color="blue" />}
+                                </div>
+                            )}
                             {tooltip.rows.map((row) => (
                                 <p key={row.label} className="text-muted-foreground">
                                     {row.label}:{" "}
