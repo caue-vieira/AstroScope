@@ -15,7 +15,11 @@ import type { ChartPoint } from "../utils/parser";
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+interface CustomTooltipProps extends Omit<TooltipProps<number, string>, 'payload'> {
+    payload?: Array<{ payload: ChartPoint }>;
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
     if (!active || !payload?.length) return null;
     const d = payload[0].payload as ChartPoint;
     return (

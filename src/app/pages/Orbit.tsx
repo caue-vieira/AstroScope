@@ -216,22 +216,20 @@ function Orbit() {
     const handleSearch = useCallback(async () => {
         const trimmed = query.trim();
         if (!trimmed) return;
-
+ 
         setLoading(true);
         setError(null);
         setAsteroidInfo(null);
         setHasOrbit(false);
-
+ 
         try {
             const response = await axios.get<SbdbResponse>(
-                `https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=${encodeURIComponent(trimmed)}&full-prec=true&phys-par=true`
+                `/api/jpl-proxy?sstr=${encodeURIComponent(trimmed)}&full-prec=true&phys-par=true`
             );
-
+ 
             const { elements, info } = parseSbdbResponse(response.data);
             setAsteroidInfo(info);
-            setOrbitalElements(elements);
             drawOrbit(elements);
-            captureSnapshot();
         } catch (err) {
             if (axios.isAxiosError(err) && err.response?.status === 200) {
                 setError("Asteroide não encontrado. Tente outro nome ou designação.");
@@ -241,7 +239,7 @@ function Orbit() {
         } finally {
             setLoading(false);
         }
-    }, [query, drawOrbit, setAsteroidInfo, setOrbitalElements, captureSnapshot]);
+    }, [query, drawOrbit]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") handleSearch();

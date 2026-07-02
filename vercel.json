@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+      {
+        "source": "/api/jpl-proxy",
+        "destination": "https://ssd-api.jpl.nasa.gov/sbdb.api"
+      }
+    ]
+  }
