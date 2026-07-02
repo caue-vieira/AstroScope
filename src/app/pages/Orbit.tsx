@@ -12,6 +12,14 @@ import type { OrbitalElements, SbdbResponse } from "@/app/utils/SbdbService";
 // ─── Scale factor: 1 AU → scene units ────────────────────────────────────────
 const AU_SCALE = 5;
 
+// ─── Tooltip data shown on hover over the orbit or the asteroid body ─────────
+type TooltipData = {
+    x: number; // px, relative to the canvas container
+    y: number; // px, relative to the canvas container
+    title: string;
+    rows: { label: string; value: string }[];
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 function Orbit() {
@@ -23,6 +31,8 @@ function Orbit() {
         controls: OrbitControls;
         asteroidMesh: THREE.Mesh | null;
         orbitLine: THREE.Line | null;
+        /** Invisible tube around the orbit line — reliable raycast target */
+        orbitTube: THREE.Mesh | null;
         animationId: number;
     } | null>(null);
 
@@ -32,9 +42,15 @@ function Orbit() {
     const [hasOrbit, setHasOrbit] = useState(false);
     const [sceneReady, setSceneReady] = useState(false);
 
-    // Mirror orbitalElements into a ref so the restore effect can read it without
-    // needing it as a dependency (avoids re-running on every new search).
-    const orbitalElementsRef = useRef<OrbitalElements | null>(orbitalElements);
+    // Hover tooltip (orbit trajectory or asteroid body). Position is in pixels
+    // relative to the canvas container; content is a list of label/value rows.
+    const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+
+    // The scene init effect runs once, so its mousemove listener would close over
+    // stale data. Mirror the current values into refs the listener can read live.
+    const asteroidInfoRef = useRef(asteroidInfo);
+    const orbitalElementsRef = useRef(orbitalElements);
+    useEffect(() => { asteroidInfoRef.current = asteroidInfo; }, [asteroidInfo]);
     useEffect(() => { orbitalElementsRef.current = orbitalElements; }, [orbitalElements]);
 
     // ── Three.js scene initialisation (runs once) ──────────────────────────
@@ -74,6 +90,68 @@ function Orbit() {
         controls.dampingFactor = 0.06;
         controls.minDistance = 2;
         controls.maxDistance = 200;
+
+        // Raycasting for hover tooltips. Thin THREE.Line objects are unreliable
+        // raycast targets, so an invisible TubeGeometry (built in drawOrbit) is
+        // used as the orbit target. The asteroid mesh is checked first.
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        const handlePointerMove = (event: PointerEvent) => {
+            const ref = sceneRef.current;
+            if (!ref) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, ref.camera);
+
+            const info = asteroidInfoRef.current;
+            const elements = orbitalElementsRef.current;
+            const px = event.clientX - rect.left;
+            const py = event.clientY - rect.top;
+
+            // 1) Asteroid body (higher priority)
+            if (ref.asteroidMesh && info) {
+                const hit = raycaster.intersectObject(ref.asteroidMesh, false);
+                if (hit.length > 0) {
+                    const rows: { label: string; value: string }[] = [
+                        { label: "Designação", value: info.designation },
+                        { label: "Classe", value: info.orbitClass },
+                        { label: "Período", value: `${info.period} dias` },
+                        { label: "MOID (Terra)", value: `${info.moid} AU` },
+                    ];
+                    if (info.isNeo) rows.push({ label: "NEO", value: "Sim" });
+                    if (info.isPha) rows.push({ label: "PHA", value: "Sim" });
+                    setTooltip({ x: px, y: py, title: info.shortname, rows });
+                    return;
+                }
+            }
+
+            // 2) Orbit trajectory (invisible tube target)
+            if (ref.orbitTube && elements) {
+                const hit = raycaster.intersectObject(ref.orbitTube, false);
+                if (hit.length > 0) {
+                    setTooltip({
+                        x: px,
+                        y: py,
+                        title: "Órbita",
+                        rows: [
+                            { label: "Semieixo maior", value: `${elements.a.toFixed(4)} AU` },
+                            { label: "Excentricidade", value: elements.e.toFixed(4) },
+                            { label: "Periélio", value: `${elements.q.toFixed(4)} AU` },
+                            { label: "Afélio", value: `${elements.ad.toFixed(4)} AU` },
+                            { label: "Período", value: `${elements.period.toFixed(2)} dias` },
+                        ],
+                    });
+                    return;
+                }
+            }
+
+            setTooltip(null);
+        };
+
+        renderer.domElement.addEventListener("pointermove", handlePointerMove);
 
         // Sun
         const textureLoader = new THREE.TextureLoader();
@@ -127,12 +205,13 @@ function Orbit() {
         };
         window.addEventListener("resize", handleResize);
 
-        sceneRef.current = { scene, camera, renderer, controls, asteroidMesh: null, orbitLine: null, animationId };
+        sceneRef.current = { scene, camera, renderer, controls, asteroidMesh: null, orbitLine: null, orbitTube: null, animationId };
         setSceneReady(true);
 
         return () => {
             cancelAnimationFrame(animationId);
             window.removeEventListener("resize", handleResize);
+            renderer.domElement.removeEventListener("pointermove", handlePointerMove);
             controls.dispose();
             renderer.dispose();
             if (mountRef.current) {
@@ -162,6 +241,12 @@ function Orbit() {
             (ref.orbitLine.material as THREE.Material).dispose();
             ref.orbitLine = null;
         }
+        if (ref.orbitTube) {
+            scene.remove(ref.orbitTube);
+            ref.orbitTube.geometry.dispose();
+            (ref.orbitTube.material as THREE.Material).dispose();
+            ref.orbitTube = null;
+        }
 
         // Orbit ellipse
         const ellipsePoints = orbitEllipsePoints(elements, 720);
@@ -175,6 +260,18 @@ function Orbit() {
         const orbitLine = new THREE.Line(lineGeom, lineMat);
         scene.add(orbitLine);
         ref.orbitLine = orbitLine;
+
+        // Invisible tube around the same curve — reliable raycast target for the
+        // orbit hover tooltip (thin lines raycast poorly at varying zoom levels).
+        const curve = new THREE.CatmullRomCurve3(
+            ellipsePoints.map((p) => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)),
+            true
+        );
+        const tubeGeom = new THREE.TubeGeometry(curve, 360, 0.18, 8, true);
+        const tubeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        const orbitTube = new THREE.Mesh(tubeGeom, tubeMat);
+        scene.add(orbitTube);
+        ref.orbitTube = orbitTube;
 
         // Asteroid current position
         const t = currentJulianDay();
@@ -206,11 +303,14 @@ function Orbit() {
     }, [setOrbitSnapshot]);
 
     // ── Restore orbit when re-mounting after a tab switch ─────────────────
+    // Reads orbitalElements directly from context (the reactive source of truth)
+    // rather than the ref, so restoration runs reliably once both the scene is
+    // ready and the elements are available — regardless of effect ordering.
     useEffect(() => {
-        if (!sceneReady || !orbitalElementsRef.current) return;
-        drawOrbit(orbitalElementsRef.current);
+        if (!sceneReady || !orbitalElements) return;
+        drawOrbit(orbitalElements);
         captureSnapshot();
-    }, [sceneReady, drawOrbit, captureSnapshot]);
+    }, [sceneReady, orbitalElements, drawOrbit, captureSnapshot]);
 
     // ── Search handler ─────────────────────────────────────────────────────
     const handleSearch = useCallback(async () => {
@@ -291,8 +391,31 @@ function Orbit() {
             <div className="flex flex-1 min-h-0 overflow-hidden">
 
                 {/* ── Three.js canvas ─────────────────────────────────────── */}
-                <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+                <div
+                    className="relative flex-1 min-h-0 min-w-0 overflow-hidden"
+                    onPointerLeave={() => setTooltip(null)}
+                >
                     <div ref={mountRef} className="w-full h-full bg-transparent" />
+
+                    {/* Hover tooltip (orbit / asteroid) */}
+                    {tooltip && (
+                        <div
+                            className="absolute z-10 pointer-events-none bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-lg"
+                            style={{
+                                left: tooltip.x + 12,
+                                top: tooltip.y + 12,
+                                transform: "translateY(-100%)",
+                            }}
+                        >
+                            <p className="font-semibold text-foreground mb-1">{tooltip.title}</p>
+                            {tooltip.rows.map((row) => (
+                                <p key={row.label} className="text-muted-foreground">
+                                    {row.label}:{" "}
+                                    <span className="text-foreground font-mono">{row.value}</span>
+                                </p>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Empty state overlay */}
                     {!hasOrbit && !loading && !error && (
