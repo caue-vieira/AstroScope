@@ -334,6 +334,7 @@ function Orbit() {
         setLoading(true);
         setError(null);
         setAsteroidInfo(null);
+        setOrbitalElements(null);
         setHasOrbit(false);
  
         try {
@@ -343,6 +344,7 @@ function Orbit() {
  
             const { elements, info } = parseSbdbResponse(response.data);
             setAsteroidInfo(info);
+            setOrbitalElements(elements);
             drawOrbit(elements);
         } catch (err) {
             if (axios.isAxiosError(err) && err.response?.status === 200) {

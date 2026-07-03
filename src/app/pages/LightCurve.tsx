@@ -57,9 +57,6 @@ export default function LightCurve() {
             {/* ── Header row ─────────────────────────────────────────────── */}
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-lg font-semibold text-foreground">
-                        Curva de Luz
-                    </h2>
                     {sessions && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                             {sessions.length} sessões carregadas
