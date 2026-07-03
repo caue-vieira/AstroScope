@@ -13,7 +13,6 @@ function ToggleTheme({ darkTheme, setDarkTheme }: ToggleThemeProps) {
 	const body = document.body;
 	if(darkTheme) {
 		body.classList.add("dark");
-		body.style.backgroundImage = 'url(/Background-Dark.png)'
 	} else {
 		body.classList.remove("dark")
 		body.style.backgroundImage = "";

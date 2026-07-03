@@ -155,6 +155,20 @@ export function sessionsToChartPoints(sessions: Session[]): ChartPoint[] {
         });
 }
 
+// export function sessionsToChartPoints(sessions: Session[]): ChartPoint[] {
+//     return sessions
+//         .filter((s) => s.data.length > 0)
+//         .flatMap((s) =>
+//             s.data.map((d) => ({
+//                 sessionDate: `${s.sessionDate} ${d.date.toISOString().slice(11, 16)}`,
+//                 magnitude: Number(d.magnitude.toFixed(4)),
+//                 errorUp: Number(d.error.toFixed(4)),
+//                 errorDown: Number(d.error.toFixed(4)),
+//                 n: 1,
+//             }))
+//         );
+// }
+
 /** Returns the min / max sessionDate strings across all sessions */
 export function getDateBounds(sessions: Session[]): { min: string; max: string } | null {
     if (sessions.length === 0) return null;
